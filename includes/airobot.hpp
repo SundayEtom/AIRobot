@@ -171,15 +171,15 @@ class Prompt{
                 bool create_ids = true;
 
                 if(regex_search(sub, matches, pattern)){
-                    if(create_ids){
+                    //if(create_ids){
                         string idtype = matches[1];
                         string idname = matches[3];
                         if(idname.empty())
                             continue;
                         Identifier ident(idname, idtype);
                         identifiers.push_back(ident);
-                        create_ids = false;
-                    }
+                        //create_ids = false;
+                    //}
 
                     regex numpat{"<number(.*?)>"};
                     regex strpat{"<string(.*?)>"};
