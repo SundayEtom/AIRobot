@@ -214,6 +214,8 @@ class Prompt{
 class Response{
     private:
         string content;
+        vector<string> text_options;
+        vector<string> code_options;
 
     public:
         Response(string c) : content{c}{}
@@ -228,20 +230,43 @@ class Response{
             return false;
         }
 
+
+        bool has_text(void){ return (text_options.size() > 0); }
+        bool has_code(void){ return (code_options.size() > 0); }
+
+        string getTextContent(void){
+            int res_count = text_options.size();
+            if(res_count <= 0) return "";
+
+            srand((int)time(0));
+            int index = rand() % res_count;
+
+            return text_options.at(index);
+        }
+
         string getContent(void){
             return content;
         }
 
         string getCodeContent(void){
-            regex code_pattern{"(.*?)<code>(.*?)</code>(.*?)"};
-            smatch matches;
-            if(regex_match(content, matches, code_pattern))
-                return matches[2];
-            return "";
+            int res_count = code_options.size();
+            if(res_count <= 0) return "";
+
+            srand((int)time(0));
+            int index = rand() % res_count;
+
+            return code_options.at(index);
         }
 
-        void setContent(string c){
-            this->content = c;
+        void setContent(string c, bool is_text){
+            /*
+            regex code_pat{"<code>(.*?)</code>"};
+            for(sregex_iterator p(c.begin(), c.end(), code_pat); p!=sregex_iterator{}; ++p){
+
+            }
+            */
+            if(is_text) this->text_options.push_back(c);
+            else this->code_options.push_back(c);
         }
 
         string format(void){
@@ -305,7 +330,12 @@ class Category{
                     int index = rand() % res_count;
                     Response res = responses.at(index);
 
-                    if(res.iscode()){
+                    if(res.has_text()){
+                        cout << res.getTextContent();
+                        cout.flush();
+                    }
+
+                    if(res.has_code()){
                         string command;
                         string file = "intepreter";
 
@@ -345,10 +375,10 @@ class Category{
 
                             return "";
                         }
-                    } else return res.getContent();
+                    }
+                    break;  // Once the appropriate respnse is found, stop searching and matching
                 }
                 else{
-                    cout << "Regex was not generated." << endl;
                     return "";
                 }
             }
@@ -418,20 +448,36 @@ class Robot{
                             Response response;
                             string cont = "";
 
-                            XMLDom random = child.getChild("random");
-                            if(!random.is_empty()){
-                                for(XMLDom option : random.getChildren({"option"})){
-                                    cont = option.getContent();
-                                    response.setContent(cont);
-                                    newCategory.addResponse(response);
-                                    //cout << newCategory.respond("56 + 7") << endl;
+                            XMLDom text = child.getChild("text");
+                            if(!text.is_empty()){
+                                XMLDom random = text.getChild("random");
+                                if(!random.is_empty()){
+                                    for(XMLDom option : random.getChildren({"option"})){
+                                        cont = option.getContent();
+                                        response.setContent(cont, true);  // true means this content should be parsed as text
+                                    }
+                                }
+                                else{
+                                    cont = text.getContent();
+                                    response.setContent(cont, true);    // true means this content should be parsed as text
                                 }
                             }
-                            else{
-                                cont = child.getContent();
-                                response.setContent(cont);
-                                newCategory.addResponse(response);
+
+                            XMLDom code = child.getChild("code");
+                            if(!code.is_empty()){
+                                XMLDom random = code.getChild("random");
+                                if(!random.is_empty()){
+                                    for(XMLDom option : random.getChildren({"option"})){
+                                        cont = option.getContent();
+                                        response.setContent(cont, false);  // true means this content should be parsed as text
+                                    }
+                                }
+                                else{
+                                    cont = code.getContent();
+                                    response.setContent(cont, false);    // true means this content should be parsed as text
+                                }
                             }
+                            newCategory.addResponse(response);
                         }
                     }
                 }
