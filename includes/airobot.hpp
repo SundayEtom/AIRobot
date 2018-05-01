@@ -164,36 +164,26 @@ class Prompt{
 
     public:
         Prompt(string tmp) : original{tmp}{
-            regex pattern{"<([[:alpha:]]+)([[:s:]]+as[[:s:]]*=[[:s:]]*\"([[:alnum:]]+)\")?>"};
+            regex pattern{"<([[:alpha:]]+)([[:s:]]+as[[:s:]]*=[[:s:]]*\"([[:alnum:]]*)\"){0,1}>"};
+            regex_str = original;
+
             for(sregex_iterator p(original.begin(), original.end(), pattern); p != sregex_iterator{}; ++p){
                 string sub = (*p)[0];
-                smatch matches;
-                bool create_ids = true;
 
-                if(regex_search(sub, matches, pattern)){
-                    //if(create_ids){
-                        string idtype = matches[1];
-                        string idname = matches[3];
-                        if(idname.empty())
-                            continue;
-                        Identifier ident(idname, idtype);
-                        identifiers.push_back(ident);
-                        //create_ids = false;
-                    //}
-
-                    regex numpat{"<number(.*?)>"};
-                    regex strpat{"<string(.*?)>"};
-                    regex oppat{"<mathop(.*?)>"};
-                    regex fmtpat{"<br>"};
-
-                    regex_str = original;
-                    regex_str = regex_replace(regex_str, numpat, ".*?([[:digit:]]+).*?");
-                    regex_str = regex_replace(regex_str, strpat, "(.*?)");
-                    regex_str = regex_replace(regex_str, oppat, "([\\+\\*\\-/]{1})");
-                    regex_str = regex_replace(regex_str, fmtpat, "([\\n]{1})");
-
-                }
+                string idtype = (*p)[1];
+                string idname = (*p)[3];
+                if(idname.empty())
+                    continue;
+                Identifier ident(idname, idtype);
+                identifiers.push_back(ident);
             }
+            regex numpat{"<number.*?>"};
+            regex strpat{"<string.*?>"};
+            regex oppat{"<mathop.*?>"};
+
+            regex_str = regex_replace(regex_str, numpat, "[()[:s:]]*([[:d:]]+)[()[:s:]]*");
+            regex_str = regex_replace(regex_str, strpat, "(.*?)");
+            regex_str = regex_replace(regex_str, oppat, "[()[:s:]]*([+*-/%]{1})[()[:s:]]*");
         }
         Prompt(void) : original{""}, regex_str{""}{
             // This prompt is empty
@@ -218,37 +208,6 @@ class Prompt{
 
         string getPattern(void){ return regex_str; }
         string getOriginal(void){ return original; }
-
-        void setOriginal(string original){
-            this->original = original;
-            regex pattern{"<([[:alpha:]]+)([[:s:]]+as[[:s:]]*=[[:s:]]*\"([[:alnum:]]+)\")?>"};
-            for(sregex_iterator p(original.begin(), original.end(), pattern); p != sregex_iterator{}; ++p){
-                string sub = (*p)[0];
-                smatch matches;
-                bool create_ids = true;
-
-                if(regex_search(sub, matches, pattern)){
-                    if(create_ids){
-                        string idtype = matches[1];
-                        string idname = matches[3];
-                        if(idname.empty())
-                            continue;
-                        Identifier ident(idname, idtype);
-                        identifiers.push_back(ident);
-                        create_ids = false;
-                    }
-
-                    regex numpat{"<number(.*?)>"};
-                    regex strpat{"<string(.*?)>"};
-                    regex oppat{"<mathop(.*?)>"};
-
-                    regex_str = original;
-                    regex_str = regex_replace(regex_str, numpat, ".*?([[:digit:]]+).*?");
-                    regex_str = regex_replace(regex_str, strpat, "(.*?)");
-                    regex_str = regex_replace(regex_str, oppat, "([\\+\\*\\-/]{1})");
-                }
-            }
-        }
 };
 
 
@@ -334,9 +293,12 @@ class Category{
                 return "No response.";
             }
 
-            for(Prompt p : prompts){
+            for(Prompt& p : prompts){
                 smatch matches;
-                regex pat{p.getPattern()};
+                string patstr{p.getPattern()};
+                if(patstr.empty())
+                    continue;
+                regex pat{patstr};
 
                 if(regex_search(prompt, matches, pat)){
                     srand((int)time(0));
@@ -371,13 +333,23 @@ class Category{
                                     if(language == "cpp") os << "char " << id.getName() << " = '" << id.getContent() << "';" << endl;
                                 }
                             }
-                            os << endl << res.format() << endl;
+                            string code_content = res.format();
+                            if(regex_search(code_content, regex("<prompt/>"))){
+                                if(regex_search(prompt, matches, pat))
+                                    os << "\nprint(" << matches[0] << ")" << endl;
+                            }
+                            else os << endl << code_content << endl;
+
                             os.close();
                             system(command.c_str());
 
                             return "";
                         }
                     } else return res.getContent();
+                }
+                else{
+                    cout << "Regex was not generated." << endl;
+                    return "";
                 }
             }
         }
@@ -480,17 +452,5 @@ class Robot{
             }
         }
 };
-
-
-string outputDir = "AIRobotOutput/";
-string robotName;
-string xml_text = "";
-ofstream outputCpp, outputHpp, intepreter;
-
-bool initialize(XMLDom dom);
-bool de_initialize(bool compile);
-bool parse_robot(XMLDom dom);
-bool is_code(string& content);
-string parse_content(string content, string language, bool printout);
 
 #endif
