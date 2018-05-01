@@ -318,11 +318,10 @@ class Category{
                 return "No response.";
             }
 
-            for(Prompt& p : prompts){
+            Prompt p = getPrompt(prompt);
+            if(!p.is_empty()){
                 smatch matches;
                 string patstr{p.getPattern()};
-                if(patstr.empty())
-                    continue;
                 regex pat{patstr};
 
                 if(regex_search(prompt, matches, pat)){
@@ -376,12 +375,12 @@ class Category{
                             return "";
                         }
                     }
-                    break;  // Once the appropriate respnse is found, stop searching and matching
                 }
                 else{
                     return "";
                 }
             }
+            return "";
         }
 
         Prompt getPrompt(string original){
@@ -390,7 +389,7 @@ class Category{
                 smatch matches;
                 regex pat{p.getPattern()};
 
-                if(regex_match(original, matches, pat)){
+                if(regex_search(original, matches, pat)){
                     prompt = p;
                     break;
                 }
